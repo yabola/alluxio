@@ -2406,8 +2406,56 @@ public final class DefaultFileSystemMaster extends CoreMaster
                 + ufsUri.toString());
           }
           Arrays.sort(children, Comparator.comparing(UfsStatus::getName));
+          LOG.info("Found children of {}, size {}", path.toString(), children.length);
 
-          for (UfsStatus childStatus : children) {
+          List<UfsStatus> dirUfsStatus =
+                  Arrays.stream(children)
+                          .filter(UfsStatus::isDirectory)
+                          .collect(Collectors.toList());
+          List<UfsStatus> fileUfsStatus =
+                  Arrays.stream(children)
+                          .filter(UfsStatus::isFile)
+                          .collect(Collectors.toList());
+          for (UfsStatus childStatus : dirUfsStatus) {
+            if (PathUtils.isTemporaryFileName(childStatus.getName())) {
+              continue;
+            }
+            AlluxioURI childURI = new AlluxioURI(
+                    PathUtils.concatPath(inodePath.getUri(), childStatus.getName()));
+            if (mInodeTree.inodePathExists(childURI) && (childStatus.isFile()
+                    || context.getOptions().getLoadDescendantType() != LoadDescendantPType.ALL)) {
+              // stop traversing if this is an existing file, or an existing directory without
+              // loading all descendants.
+              continue;
+            }
+
+            try (LockedInodePath descendant = inodePath.lockDescendant(
+                    inodePath.getUri().joinUnsafe(childStatus.getName()), LockPattern.READ)) {
+              LoadMetadataContext loadMetadataContext = LoadMetadataContext
+                      .mergeFrom(LoadMetadataPOptions.newBuilder()
+                      .setLoadDescendantType(LoadDescendantPType.NONE).setCreateAncestors(false))
+                      .setUfsStatus(childStatus);
+              try {
+                loadDirectoryMetadata(rpcContext, descendant, loadMetadataContext);
+              } catch (FileNotFoundException e) {
+                LOG.debug(
+                        "Failed to loadMetadata because file is not in ufs:"
+                                + " inodePath={}, options={}.",
+                        descendant.getUri(), loadMetadataContext, e);
+                continue;
+              } catch (Exception e) {
+                LOG.info("Failed to loadMetadata: inodePath={}, options={}.", descendant.getUri(),
+                        loadMetadataContext, e);
+                continue;
+              }
+              if (context.getOptions().getLoadDescendantType() == LoadDescendantPType.ALL
+                      && descendant.getInode().isDirectory()) {
+                mInodeTree.setDirectChildrenLoaded(rpcContext, descendant.getInode().asDirectory());
+              }
+            }
+          }
+          LOG.info("Load dir children of {}, size {}", path.toString(), dirUfsStatus.size());
+          for (UfsStatus childStatus : fileUfsStatus) {
             if (PathUtils.isTemporaryFileName(childStatus.getName())) {
               continue;
             }
@@ -2427,24 +2475,21 @@ public final class DefaultFileSystemMaster extends CoreMaster
                       .setLoadDescendantType(LoadDescendantPType.NONE).setCreateAncestors(false))
                   .setUfsStatus(childStatus);
               try {
-                loadMetadataInternal(rpcContext, descendant, loadMetadataContext);
+                MountTable.Resolution fileResolution = mMountTable.resolve(childURI);
+                loadFileMetadataInternal(rpcContext, descendant,
+                        fileResolution, loadMetadataContext);
               } catch (FileNotFoundException e) {
                 LOG.debug(
                     "Failed to loadMetadata because file is not in ufs:"
                         + " inodePath={}, options={}.",
                     descendant.getUri(), loadMetadataContext, e);
-                continue;
               } catch (Exception e) {
                 LOG.info("Failed to loadMetadata: inodePath={}, options={}.", descendant.getUri(),
                     loadMetadataContext, e);
-                continue;
-              }
-              if (context.getOptions().getLoadDescendantType() == LoadDescendantPType.ALL
-                  && descendant.getInode().isDirectory()) {
-                mInodeTree.setDirectChildrenLoaded(rpcContext, descendant.getInode().asDirectory());
               }
             }
           }
+          LOG.info("Load file children of {}, size {}", path.toString(), fileUfsStatus.size());
           mInodeTree.setDirectChildrenLoaded(rpcContext, inodePath.getInode().asDirectory());
         }
       }
