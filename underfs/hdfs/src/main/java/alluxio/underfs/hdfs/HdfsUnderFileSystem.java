@@ -766,7 +766,7 @@ public class HdfsUnderFileSystem extends ConsistentUnderFileSystem
   /**
    * @return the underlying HDFS {@link FileSystem} object
    */
-  private FileSystem getFs() throws IOException {
+  protected FileSystem getFs() throws IOException {
     try {
       // TODO(gpang): handle different users
       return mUserFs.get(HDFS_USER);
