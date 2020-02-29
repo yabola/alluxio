@@ -11,8 +11,6 @@
 
 package alluxio.hadoop;
 
-import static java.util.stream.Collectors.toList;
-
 import alluxio.AlluxioURI;
 import alluxio.ClientContext;
 import alluxio.Constants;
@@ -31,6 +29,7 @@ import alluxio.exception.InvalidPathException;
 import alluxio.grpc.CreateDirectoryPOptions;
 import alluxio.grpc.CreateFilePOptions;
 import alluxio.grpc.DeletePOptions;
+import alluxio.grpc.ListStatusPOptions;
 import alluxio.grpc.SetAttributePOptions;
 import alluxio.master.MasterInquireClient.Factory;
 import alluxio.security.CurrentUser;
@@ -43,6 +42,7 @@ import alluxio.wire.WorkerNetAddress;
 import com.google.common.net.HostAndPort;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.hadoop.fs.BlockLocation;
+import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
@@ -64,11 +64,11 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.security.auth.Subject;
-
 /**
  * Base class for Apache Hadoop based Alluxio {@link org.apache.hadoop.fs.FileSystem}. This class
  * really just delegates to {@link alluxio.client.file.FileSystem} for most operations.
@@ -282,7 +282,7 @@ abstract class AbstractFileSystem extends org.apache.hadoop.fs.FileSystem {
         if (end >= start && offset <= start + len) {
           List<HostAndPort> addresses = workers.stream()
               .map(worker -> HostAndPort.fromParts(worker.getHost(), worker.getDataPort()))
-              .collect(toList());
+              .collect(Collectors.toList());
           String[] names = addresses.stream().map(HostAndPort::toString).toArray(String[]::new);
           String[] hosts = addresses.stream().map(HostAndPort::getHost).toArray(String[]::new);
           blockLocations.add(new BlockLocation(names, hosts, offset,
@@ -562,6 +562,10 @@ abstract class AbstractFileSystem extends org.apache.hadoop.fs.FileSystem {
 
   @Override
   public FileStatus[] listStatus(Path path) throws IOException {
+    return listStatus(path, false);
+  }
+
+  private FileStatus[] listStatus(Path path, boolean recursive) throws IOException {
     LOG.debug("listStatus({})", path);
 
     if (mStatistics != null) {
@@ -571,7 +575,10 @@ abstract class AbstractFileSystem extends org.apache.hadoop.fs.FileSystem {
     AlluxioURI uri = getAlluxioPath(path);
     List<URIStatus> statuses;
     try {
-      statuses = mFileSystem.listStatus(uri);
+      statuses = mFileSystem.listStatus(uri, ListStatusPOptions
+              .newBuilder()
+              .setRecursive(recursive)
+              .build());
     } catch (FileDoesNotExistException e) {
       throw new FileNotFoundException(getAlluxioPath(path).toString());
     } catch (AlluxioException e) {
@@ -583,9 +590,9 @@ abstract class AbstractFileSystem extends org.apache.hadoop.fs.FileSystem {
       URIStatus status = statuses.get(k);
 
       ret[k] = new FileStatus(status.getLength(), status.isFolder(), getReplica(status),
-          status.getBlockSizeBytes(), status.getLastModificationTimeMs(),
-          status.getLastAccessTimeMs(), new FsPermission((short) status.getMode()),
-          status.getOwner(), status.getGroup(), getFsPath(mAlluxioHeader, status));
+              status.getBlockSizeBytes(), status.getLastModificationTimeMs(),
+              status.getLastAccessTimeMs(), new FsPermission((short) status.getMode()),
+              status.getOwner(), status.getGroup(), getFsPath(mAlluxioHeader, status));
     }
     return ret;
   }
@@ -740,4 +747,25 @@ abstract class AbstractFileSystem extends org.apache.hadoop.fs.FileSystem {
    * @return FS native path
    */
   protected abstract Path getFsPath(String fsUriHeader, URIStatus fileStatus);
+
+  @Override
+  public ContentSummary getContentSummary(Path f) throws IOException {
+    LOG.info("try to get content summary {}", f.toString());
+    long length = 0L;
+    long dirCount = 0L;
+    long fileCount = 0L;
+
+    FileStatus[] filesArray = listStatus(f, true);
+    LOG.info("get file status successfully {}", filesArray.length);
+    for (FileStatus status : filesArray) {
+      if (!status.isDirectory()) {
+        fileCount++;
+        length += status.getLen();
+      } else {
+        dirCount++;
+      }
+    }
+    LOG.info("get content summary successfully");
+    return new ContentSummary(length, fileCount, dirCount);
+  }
 }
