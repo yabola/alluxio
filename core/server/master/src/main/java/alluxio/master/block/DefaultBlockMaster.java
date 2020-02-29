@@ -668,17 +668,20 @@ public final class DefaultBlockMaster extends CoreMaster implements BlockMaster 
   @Override
   public void commitBlockInUFS(long blockId, long length) throws UnavailableException {
     LOG.debug("Commit block in ufs. blockId: {}, length: {}", blockId, length);
-    try (JournalContext journalContext = createJournalContext();
-         LockResource lr = lockBlock(blockId)) {
-      if (mBlockStore.getBlock(blockId).isPresent()) {
-        // Block metadata already exists, so do not need to create a new one.
-        return;
+    getExecutorService().submit(() -> {
+      try (JournalContext journalContext = createJournalContext();
+           LockResource lr = lockBlock(blockId)) {
+        if (mBlockStore.getBlock(blockId).isPresent()) {
+          // Block metadata already exists, so do not need to create a new one.
+          return "0";
+        }
+        mBlockStore.putBlock(blockId, BlockMeta.newBuilder().setLength(length).build());
+        BlockInfoEntry blockInfo =
+                BlockInfoEntry.newBuilder().setBlockId(blockId).setLength(length).build();
+        journalContext.append(JournalEntry.newBuilder().setBlockInfo(blockInfo).build());
       }
-      mBlockStore.putBlock(blockId, BlockMeta.newBuilder().setLength(length).build());
-      BlockInfoEntry blockInfo =
-          BlockInfoEntry.newBuilder().setBlockId(blockId).setLength(length).build();
-      journalContext.append(JournalEntry.newBuilder().setBlockInfo(blockInfo).build());
-    }
+      return "1";
+    });
   }
 
   @Override
