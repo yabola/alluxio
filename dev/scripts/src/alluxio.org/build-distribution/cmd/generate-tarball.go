@@ -240,6 +240,7 @@ func addAdditionalFiles(srcPath, dstPath string, hadoopVersion version, version 
 		fmt.Sprintf("lib/alluxio-underfs-s3a-%v.jar", version),
 		fmt.Sprintf("lib/alluxio-underfs-swift-%v.jar", version),
 		fmt.Sprintf("lib/alluxio-underfs-wasb-%v.jar", version),
+		fmt.Sprintf("lib/alluxio-underfs-abfs-%v.jar", version),
 		fmt.Sprintf("lib/alluxio-table-server-underdb-hive-%v.jar", version),
 		"libexec/alluxio-config.sh",
 		"LICENSE",
