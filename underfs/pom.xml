@@ -33,6 +33,7 @@
     <module>swift</module>
     <module>wasb</module>
     <module>web</module>
+    <module>abfs</module>
   </modules>
 
   <properties>
