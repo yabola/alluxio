@@ -17,6 +17,7 @@ import alluxio.grpc.ClearMetricsResponse;
 import alluxio.grpc.CreateLocalBlockRequest;
 import alluxio.grpc.CreateLocalBlockResponse;
 import alluxio.grpc.GrpcServerAddress;
+import alluxio.grpc.KylinDataRequest;
 import alluxio.grpc.MoveBlockRequest;
 import alluxio.grpc.MoveBlockResponse;
 import alluxio.grpc.OpenLocalBlockRequest;
@@ -143,4 +144,8 @@ public interface BlockWorkerClient extends Closeable {
    * @param request the async cache request
    */
   void asyncCache(AsyncCacheRequest request);
+
+  /**
+   */
+  void markEvictor(KylinDataRequest request);
 }

@@ -28,6 +28,7 @@ import alluxio.grpc.GrpcChannelBuilder;
 import alluxio.grpc.DataMessageMarshaller;
 import alluxio.grpc.GrpcNetworkGroup;
 import alluxio.grpc.GrpcServerAddress;
+import alluxio.grpc.KylinDataRequest;
 import alluxio.grpc.MoveBlockRequest;
 import alluxio.grpc.MoveBlockResponse;
 import alluxio.grpc.OpenLocalBlockRequest;
@@ -235,4 +236,11 @@ public class DefaultBlockWorkerClient implements BlockWorkerClient {
           }
         });
   }
+
+  @Override
+  public void markEvictor(KylinDataRequest request) {
+    mRpcBlockingStub.withDeadlineAfter(5*1000L, TimeUnit.MILLISECONDS)
+            .markEvictor(request);
+  }
+
 }

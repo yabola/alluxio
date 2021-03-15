@@ -11,10 +11,19 @@
 
 package alluxio.worker.grpc;
 
+import java.util.Collections;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.ProtocolStringList;
+
 import alluxio.RpcUtils;
+import alluxio.client.file.FileSystemContext;
 import alluxio.conf.PropertyKey;
 import alluxio.conf.ServerConfiguration;
-import alluxio.client.file.FileSystemContext;
 import alluxio.grpc.AsyncCacheRequest;
 import alluxio.grpc.AsyncCacheResponse;
 import alluxio.grpc.BlockWorkerGrpc;
@@ -22,6 +31,7 @@ import alluxio.grpc.ClearMetricsRequest;
 import alluxio.grpc.ClearMetricsResponse;
 import alluxio.grpc.CreateLocalBlockRequest;
 import alluxio.grpc.CreateLocalBlockResponse;
+import alluxio.grpc.KylinDataResponse;
 import alluxio.grpc.MoveBlockRequest;
 import alluxio.grpc.MoveBlockResponse;
 import alluxio.grpc.OpenLocalBlockRequest;
@@ -40,19 +50,15 @@ import alluxio.util.SecurityUtils;
 import alluxio.worker.WorkerProcess;
 import alluxio.worker.block.AsyncCacheRequestManager;
 import alluxio.worker.block.BlockWorker;
-
-import com.google.common.collect.ImmutableMap;
+import alluxio.worker.block.TieredBlockStore;
+import alluxio.worker.block.evictor.Evictor;
+import alluxio.worker.block.evictor.KylinEvictor;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.grpc.MethodDescriptor;
 import io.grpc.Status;
 import io.grpc.stub.CallStreamObserver;
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Collections;
-import java.util.Map;
 
 /**
  * Server side implementation of the gRPC BlockWorker interface.
@@ -188,6 +194,28 @@ public class BlockWorkerImpl extends BlockWorkerGrpc.BlockWorkerImplBase {
       mWorkerProcess.getWorker(BlockWorker.class).clearMetrics();
       return ClearMetricsResponse.getDefaultInstance();
     }, "clearMetrics", "request=%s", responseObserver, request);
+  }
+
+  /**
+   *
+   */
+  @Override
+  public void markEvictor(alluxio.grpc.KylinDataRequest request,
+                          io.grpc.stub.StreamObserver<alluxio.grpc.KylinDataResponse> responseObserver) {
+    ProtocolStringList dataIdList = request.getDataIdList();
+    String[] datas = dataIdList.toArray(new String[0]);
+    RpcUtils.call(LOG, () -> {
+      BlockWorker worker = mWorkerProcess.getWorker(BlockWorker.class);
+      TieredBlockStore blockStore = (TieredBlockStore) worker.getBlockStore();
+      Evictor evictor = blockStore.getmEvictor();
+      assert evictor instanceof KylinEvictor;
+      for (String data : datas) {
+        Integer level = Integer.parseInt(data.split(":")[0]);
+        Long blockId = Long.parseLong(data.split(":")[1]);
+        ((KylinEvictor) evictor).updateCache(blockId, level);
+      }
+      return KylinDataResponse.getDefaultInstance();
+    }, "markEvictor", "request=%s", responseObserver, request);
   }
 
   /**

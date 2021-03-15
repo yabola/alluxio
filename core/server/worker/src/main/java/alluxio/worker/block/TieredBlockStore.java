@@ -175,6 +175,10 @@ public class TieredBlockStore implements BlockStore {
     return BlockLockManager.INVALID_LOCK_ID;
   }
 
+  public Evictor getmEvictor() {
+    return this.mEvictor;
+  }
+
   @Override
   public void unlockBlock(long lockId) throws BlockDoesNotExistException {
     LOG.debug("unlockBlock: lockId={}", lockId);

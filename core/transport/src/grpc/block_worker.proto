@@ -26,6 +26,8 @@ service BlockWorker {
 
   // TODO(lu) Move to metrics worker
   rpc ClearMetrics (ClearMetricsRequest) returns (ClearMetricsResponse);
+
+  rpc markEvictor (KylinDataRequest) returns (KylinDataResponse);
 }
 
 // The check request
@@ -167,3 +169,12 @@ message MoveBlockResponse {}
 message ClearMetricsRequest {}
 
 message ClearMetricsResponse {}
+
+// next available id: 2
+message KylinDataRequest {
+  repeated string dataId = 1;
+}
+
+message KylinDataResponse {
+   optional int32 state = 1;
+}
