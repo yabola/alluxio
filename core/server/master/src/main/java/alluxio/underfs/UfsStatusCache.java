@@ -164,6 +164,9 @@ public class UfsStatusCache {
   @Nullable
   public UfsStatus fetchStatusIfAbsent(AlluxioURI path, MountTable mountTable)
       throws InvalidPathException, IOException {
+    /**
+     * 如果缓存中没有 该节点，则去UFS上获取下，如果存在，直接用缓存
+     */
     UfsStatus status;
     try {
       status = getStatus(path);
@@ -177,6 +180,9 @@ public class UfsStatusCache {
     AlluxioURI ufsUri = resolution.getUri();
     try (CloseableResource<UnderFileSystem> ufsResource = resolution.acquireUfsResource()) {
       UnderFileSystem ufs = ufsResource.get();
+      /**
+       * LCL : 这里会去 underFS remote 获取转
+       */
       UfsStatus ufsStatus = ufs.getStatus(ufsUri.toString());
       if (ufsStatus == null) {
         mAbsentCache.addSinglePath(path);

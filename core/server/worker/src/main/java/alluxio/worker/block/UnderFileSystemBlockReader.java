@@ -150,17 +150,19 @@ public final class UnderFileSystemBlockReader extends BlockReader {
   }
 
   @Override
+  // 这里offset 是指这个block从偏移量哪个位置读，length 是指读的长度
   public ByteBuffer read(long offset, long length) throws IOException {
     Preconditions.checkState(!mClosed);
     updateUnderFileSystemInputStream(offset);
     updateBlockWriter(offset);
-
+    // 如果block待读的长度少于还剩余的，以实际为准
     long bytesToRead = Math.min(length, mBlockMeta.getBlockSize() - offset);
     if (bytesToRead <= 0) {
       return ByteBuffer.allocate(0);
     }
     byte[] data = new byte[(int) bytesToRead];
     int bytesRead = 0;
+    // 这里先把数据读出来了，再看是否有足够空间容纳block，如果有的话，使用block的writer写入数据。涉及到先读后写，后读的情况
     Preconditions.checkNotNull(mUnderFileSystemInputStream, "mUnderFileSystemInputStream");
     while (bytesRead < bytesToRead) {
       int read;

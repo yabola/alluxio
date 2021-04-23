@@ -493,6 +493,9 @@ public class InodeSyncStream {
       FileAlreadyCompletedException, InvalidFileSizeException, BlockInfoException,
       InterruptedException {
     if (!inodePath.fullPathExists()) {
+      /**
+       * 会从 ufs 上拉取相对应path，更新到元数据中
+       */
       loadMetadataForPath(inodePath);
       // skip the load metadata step in the sync if it has been just loaded
       syncExistingInodeMetadata(inodePath, true);
@@ -516,6 +519,8 @@ public class InodeSyncStream {
   }
 
   /**
+   *
+   *  猜：上一个方法已经加载了nodePath了，这一步貌似是在完善Inode的元数据信息，填补进去
    * Sync inode metadata with the UFS state.
    *
    * This method expects the {@code inodePath} to already exist in the inode tree.

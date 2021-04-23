@@ -106,6 +106,12 @@ public final class AsyncUfsAbsentPathCache implements UfsAbsentPathCache {
     addCacheEntry(path.getPath(), mountInfo);
   }
 
+  /**
+   * LCL: 当会创建一个persist 节点时会调用这个，本身本类就是为了提高效率，记录不存在path的类
+   * 创建持久化节点后，会对之前不存在的节点取消
+   *
+   * @param path the path to process for the cache
+   */
   @Override
   public void processExisting(AlluxioURI path) {
     MountInfo mountInfo = getMountInfo(path);

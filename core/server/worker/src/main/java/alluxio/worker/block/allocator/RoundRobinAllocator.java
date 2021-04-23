@@ -41,6 +41,9 @@ public final class RoundRobinAllocator implements Allocator {
   private BlockMetadataView mMetadataView;
   private Reviewer mReviewer;
 
+  /**
+   * 因为是roundRobin的，所以从上一次的位置开始循环，需要记录下来上次位置
+   */
   // We need to remember the last dir index for every storage tier
   private Map<String, Integer> mTierAliasToLastDirMap = new HashMap<>();
 
@@ -79,6 +82,7 @@ public final class RoundRobinAllocator implements Allocator {
   private StorageDirView allocateBlock(long sessionId, long blockSize,
       BlockStoreLocation location, boolean skipReview) {
     Preconditions.checkNotNull(location, "location");
+    // 在任何层次，dir和medium不定
     if (location.equals(BlockStoreLocation.anyTier())) {
       for (int i = 0; i < mMetadataView.getTierViews().size(); i++) {
         StorageTierView tierView = mMetadataView.getTierViews().get(i);
@@ -90,7 +94,9 @@ public final class RoundRobinAllocator implements Allocator {
           return tierView.getDirView(dirViewIndex);
         }
       }
-    } else if (location.equals(BlockStoreLocation.anyDirInTier(location.tierAlias()))) {
+    }
+    // 在某个特定层次，dir和medium不定
+    else if (location.equals(BlockStoreLocation.anyDirInTier(location.tierAlias()))) {
       StorageTierView tierView = mMetadataView.getTierView(location.tierAlias());
       // The review logic is handled in getNextAvailDirInTier
       int dirViewIndex = getNextAvailDirInTier(tierView, blockSize,
@@ -99,7 +105,9 @@ public final class RoundRobinAllocator implements Allocator {
         mTierAliasToLastDirMap.put(tierView.getTierViewAlias(), dirViewIndex);
         return tierView.getDirView(dirViewIndex);
       }
-    } else if (location.equals(BlockStoreLocation.anyDirInAnyTierWithMedium(
+    }
+    // 在某个特定medium?
+    else if (location.equals(BlockStoreLocation.anyDirInAnyTierWithMedium(
             location.mediumType()))) {
       for (int i = 0; i < mMetadataView.getTierViews().size(); i++) {
         StorageTierView tierView = mMetadataView.getTierViews().get(i);
@@ -111,7 +119,9 @@ public final class RoundRobinAllocator implements Allocator {
           return tierView.getDirView(dirViewIndex);
         }
       }
-    } else {
+    }
+    // 在某个特定的 dir
+    else {
       // For allocation in a specific directory, we are not checking the reviewer,
       // because we do not want the reviewer to reject it.
       StorageTierView tierView = mMetadataView.getTierView(location.tierAlias());

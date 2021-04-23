@@ -86,6 +86,8 @@ public class LocalCacheFileInStreamTest {
 
   @Before
   public void before() {
+//    long bytes = sConf.getBytes(PropertyKey.USER_FILE_CACHE_THRESHOLD);
+//    System.out.println(bytes);
     MetricsSystem.clearAllMetrics();
   }
 

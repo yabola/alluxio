@@ -320,6 +320,7 @@ public final class DefaultStorageDir implements StorageDir {
       throws InvalidWorkerStateException {
     long oldSize = tempBlockMeta.getBlockSize();
     if (newSize > oldSize) {
+      // 猜测 这里 committed 意思是还未真正进到元数据中，真写进去了，会改变状态
       reserveSpace(newSize - oldSize, false);
       tempBlockMeta.setBlockSize(newSize);
     } else if (newSize < oldSize) {

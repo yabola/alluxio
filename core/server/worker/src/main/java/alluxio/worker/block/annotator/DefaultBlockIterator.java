@@ -13,10 +13,12 @@ package alluxio.worker.block.annotator;
 
 import alluxio.collections.ConcurrentHashSet;
 import alluxio.collections.Pair;
+import alluxio.exception.BlockDoesNotExistException;
 import alluxio.worker.block.AbstractBlockStoreEventListener;
 import alluxio.worker.block.BlockMetadataManager;
 import alluxio.worker.block.BlockStoreEventListener;
 import alluxio.worker.block.BlockStoreLocation;
+import alluxio.worker.block.meta.BlockMeta;
 import alluxio.worker.block.meta.StorageDir;
 import alluxio.worker.block.meta.StorageTier;
 
@@ -98,6 +100,7 @@ public class DefaultBlockIterator implements BlockIterator {
   }
 
   /**
+   * 用于监听器，监听到访问block时触发的动作
    * Called by block-store event callbacks to update a block.
    */
   private void blockUpdated(long blockId, BlockStoreLocation location) {
@@ -113,7 +116,7 @@ public class DefaultBlockIterator implements BlockIterator {
     if (!mBlockAnnotator.isOnlineSorter()) {
       mUnorderedLocations.add(location);
     }
-
+    mMetaManager.getBlockMeta()
     if (LOG.isDebugEnabled()) {
       LOG.debug("Block:{} updated at {} with {} blocks.", blockId, location, sortedSet.size());
     }
@@ -280,20 +283,24 @@ public class DefaultBlockIterator implements BlockIterator {
       }
     }
     Pair<Long, BlockSortedField> dstItem = null;
+    // 由于是逆序的，是挑选出目的Iterator中次数最大的
     while (dstIterator.hasNext()) {
       Pair<Long, BlockSortedField> currPair = dstIterator.next();
+      // 过滤出 可淘汰的
       if (!blockFilterFunc.apply(currPair.getFirst())) {
         dstItem = currPair;
         break;
       }
     }
 
+    // 来源 MEM 或 目的 SSD 有一个源为null(都是不可淘汰的？) ，来源次数 > 目的次数
     return srcItem == null || dstItem == null
         || order.comparator().compare(srcItem.getSecond(), dstItem.getSecond()) >= 0;
   }
 
   /**
    * Internal utility to get sorted block iterator for a given location and order.
+   * LCL: blockId -> sortField（一个排序器的大小）
    */
   private Iterator<Pair<Long, BlockSortedField>> getIteratorInternal(BlockStoreLocation location,
       BlockOrder order) {

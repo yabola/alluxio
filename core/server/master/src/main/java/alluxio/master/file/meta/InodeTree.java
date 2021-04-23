@@ -114,14 +114,17 @@ public class InodeTree implements DelegatingJournaled {
      * path to lock: /a/b/c
      * existing inodes: /a
      * result: Read locks on [a]
+     *
+     * 这里就注意了，读锁只会锁 存在节点
+     *
      */
     READ,
+
     /**
      * Read lock every existing inode and edge along the path, but write lock the final inode if it
      * exists. If the inode does not exist, read lock the edge leading out of the final existing
      * ancestor. Useful when we want to modify an inode's metadata without changing the structure
      * of the inode tree (no create/rename/delete).
-     *
      * Examples
      *
      * path to lock: /a/b/c
@@ -135,8 +138,11 @@ public class InodeTree implements DelegatingJournaled {
      * path to lock: /a/b/c
      * existing inodes: /a
      * result: Read locks on [a, a->b]
+     *
+     * 读锁上在所有有的节点上，但写锁上在path的最后一个节点(如果存在的话)
      */
     WRITE_INODE,
+
     /**
      * Read lock every existing inode and edge along the path, but write lock the edge leading out
      * of the last existing ancestor. Useful when we want to modify the structure of the inode tree,
@@ -155,6 +161,8 @@ public class InodeTree implements DelegatingJournaled {
      * path to lock: /a/b/c
      * existing inodes: /a
      * result: Read locks on [a], Write locks [a->b]
+     *
+     * 基本和上面类似，但是这里会锁住边，而不是单个节点
      */
     WRITE_EDGE;
 

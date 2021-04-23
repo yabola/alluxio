@@ -68,10 +68,13 @@ public final class MaxFreeAllocator implements Allocator {
     StorageDirView candidateDirView = null;
 
     if (location.equals(BlockStoreLocation.anyTier())) {
+      // 如果是任何 Tier 的，遍历所有Tier，如果一个 Tier 被拒绝了，找下一个层次
       for (StorageTierView tierView : mMetadataView.getTierViews()) {
+        // 这个是找到最大空间能满足的dir，有几率存在底下的不满足，而上面满足了，但被T掉的风险，需要确定确实是满足的
         candidateDirView = getCandidateDirInTier(tierView, blockSize,
             BlockStoreLocation.ANY_MEDIUM);
         if (candidateDirView != null) {
+          // 如果需要review，则尝试着看看能不能接受
           if (skipReview || mReviewer.acceptAllocation(candidateDirView)) {
             break;
           }
@@ -82,6 +85,7 @@ public final class MaxFreeAllocator implements Allocator {
         }
       }
     } else if (location.equals(BlockStoreLocation.anyDirInTier(location.tierAlias()))) {
+      // 某个特定层次中的
       StorageTierView tierView = mMetadataView.getTierView(location.tierAlias());
       candidateDirView = getCandidateDirInTier(tierView, blockSize, BlockStoreLocation.ANY_MEDIUM);
       if (candidateDirView != null) {
@@ -94,6 +98,7 @@ public final class MaxFreeAllocator implements Allocator {
       }
     } else if (location.equals(BlockStoreLocation.anyDirInAnyTierWithMedium(
             location.mediumType()))) {
+      // 特定介质中的
       for (StorageTierView tierView : mMetadataView.getTierViews()) {
         candidateDirView = getCandidateDirInTier(tierView, blockSize, location.mediumType());
         if (candidateDirView != null) {
@@ -120,6 +125,7 @@ public final class MaxFreeAllocator implements Allocator {
   }
 
   /**
+   *
    * Finds a directory view in a tier view that has max free space and is able to store the block.
    *
    * @param tierView the storage tier view
@@ -135,6 +141,7 @@ public final class MaxFreeAllocator implements Allocator {
       if ((mediumType.equals(BlockStoreLocation.ANY_MEDIUM)
           || dirView.getMediumType().equals(mediumType))
           && dirView.getAvailableBytes() > maxFreeBytes) {
+        // 找到 dir 中最大空间能满足的
         maxFreeBytes = dirView.getAvailableBytes();
         candidateDirView = dirView;
       }

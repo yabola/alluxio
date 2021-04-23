@@ -615,6 +615,7 @@ public class TieredBlockStore implements BlockStore {
         new BlockMetadataAllocatorView(mMetaManager, options.canUseReservedSpace());
     // Convenient way to break on failure cases, no intention to loop
     while (true) {
+      // 刻意的某个location
       if (options.isForceLocation()) {
         // Try allocating from given location. Skip the review because the location is forced.
         dirView = mAllocator.allocateBlockWithView(sessionId, options.getSize(),
@@ -783,6 +784,9 @@ public class TieredBlockStore implements BlockStore {
         }
       }
 
+      /**
+       * 查看上述两个条件是否满足了, 不满足就一直删除 block
+      */
       if (contiguousSpaceFound && availableBytesFound) {
         break;
       }
